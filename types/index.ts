@@ -14,6 +14,8 @@ export type Area = {
   lastSynced: string
   coordinates: [number, number] // Centroid
   createdAt?: string
+  bounds?: Bounds
+  stats?: any
 }
 
 export type RunStatus = 'running' | 'completed' | 'failed'
