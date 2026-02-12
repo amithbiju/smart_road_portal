@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { MapContainer, TileLayer, Rectangle, useMapEvents, Marker, Popup, FeatureGroup } from "react-leaflet"
+import { MapContainer, TileLayer, Rectangle, useMapEvents, Marker, Popup, FeatureGroup, Polyline, useMap } from "react-leaflet"
 import { EditControl } from "react-leaflet-draw"
 import "leaflet/dist/leaflet.css"
 import "leaflet-draw/dist/leaflet.draw.css"
@@ -23,6 +23,16 @@ const fixLeafletIcon = () => {
   }
 };
 
+export interface PathOverlay {
+  id: string
+  coordinates: [number, number][] // [lat, lng] pairs
+  color: string
+  weight?: number
+  opacity?: number
+  dashArray?: string
+  label?: string
+}
+
 interface MapProps {
   className?: string
   center?: [number, number]
@@ -30,6 +40,28 @@ interface MapProps {
   interactive?: boolean
   showMockSelection?: boolean
   onSelectionComplete?: (bounds: any) => void
+  overlays?: PathOverlay[]
+  fitToOverlays?: boolean
+}
+
+// Helper component to auto-fit bounds to overlays
+function FitBounds({ overlays }: { overlays: PathOverlay[] }) {
+  const map = useMap()
+  
+  useEffect(() => {
+    if (overlays && overlays.length > 0) {
+      const allCoords: [number, number][] = []
+      overlays.forEach(o => {
+        o.coordinates.forEach(c => allCoords.push(c))
+      })
+      if (allCoords.length > 0) {
+        const bounds = L.latLngBounds(allCoords.map(c => L.latLng(c[0], c[1])))
+        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 })
+      }
+    }
+  }, [overlays, map])
+
+  return null
 }
 
 export default function Map({ 
@@ -38,7 +70,9 @@ export default function Map({
   zoom = 13,
   interactive = true,
   showMockSelection,
-  onSelectionComplete
+  onSelectionComplete,
+  overlays,
+  fitToOverlays = true
 }: MapProps) {
   
   useEffect(() => {
@@ -104,7 +138,42 @@ export default function Map({
         {showMockSelection && !interactive && (
            <Rectangle bounds={[[8.52, 76.93], [8.53, 76.94]]} pathOptions={{ color: 'blue', fillOpacity: 0.1 }} />
         )}
+
+        {/* Render path overlays (bypass road, congestion line, etc.) */}
+        {overlays && overlays.map(overlay => (
+          <Polyline
+            key={overlay.id}
+            positions={overlay.coordinates}
+            pathOptions={{
+              color: overlay.color,
+              weight: overlay.weight || 4,
+              opacity: overlay.opacity || 0.85,
+              dashArray: overlay.dashArray
+            }}
+          />
+        ))}
+        
+        {/* Auto-fit to overlays */}
+        {fitToOverlays && overlays && overlays.length > 0 && (
+          <FitBounds overlays={overlays} />
+        )}
       </MapContainer>
+
+      {/* Legend for overlays */}
+      {overlays && overlays.length > 0 && (
+        <div className="absolute bottom-4 left-4 z-[1000] bg-card/95 backdrop-blur rounded-lg border border-border shadow-lg p-3 space-y-1.5">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Legend</span>
+          {overlays.map(o => (
+            <div key={o.id} className="flex items-center gap-2 text-xs">
+              <div 
+                className="w-5 h-1 rounded-full" 
+                style={{ backgroundColor: o.color, opacity: o.opacity || 0.85 }} 
+              />
+              <span className="text-foreground">{o.label || o.id}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
