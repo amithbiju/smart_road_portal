@@ -81,6 +81,47 @@ export async function getStatus(projectId: string): Promise<ProjectStatus> {
     return response.json();
 }
 
+export async function runSimulation(projectId: string): Promise<any> {
+    const response = await fetch(`${BASE_URL}/simulate/${projectId}`, {
+        method: "POST",
+    });
+    if (!response.ok) {
+        throw new Error("Failed to start simulation");
+    }
+    return response.json();
+}
+
+export interface SimulationResponse {
+    project_id: string;
+    phase_definitions: Record<string, Record<string, string>>; // junction_id -> phase_id -> signal_string
+    simulation_log: SimulationLog[];
+}
+
+export interface SimulationLog {
+    episode: number;
+    junction_id: string;
+    phase_id: number;
+    duration: number;
+}
+
+export async function getSimulationData(projectId: string): Promise<SimulationResponse> {
+    try {
+        const response = await fetch(`${BASE_URL}/simulation/${projectId}`);
+        if (!response.ok) {
+            throw new Error("Failed to fetch simulation data");
+        }
+        return await response.json();
+    } catch (error) {
+        console.warn("API Error (getSimulationData):", error);
+        // Return dummy structure to prevent crash, or rethrow if you want UI to show error
+        return { 
+            project_id: projectId, 
+            phase_definitions: {}, 
+            simulation_log: [] 
+        };
+    }
+}
+
 export function getLogStreamUrl(projectId: string): string {
   return `${BASE_URL}/logs/${projectId}`;
 }
