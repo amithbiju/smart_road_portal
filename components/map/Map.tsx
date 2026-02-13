@@ -7,6 +7,7 @@ import "leaflet/dist/leaflet.css"
 import "leaflet-draw/dist/leaflet.draw.css"
 import L from "leaflet"
 import { cn } from "@/lib/utils"
+import { Bounds } from "@/types"
 
 // Fix for default markers in Leaflet with Next.js
 const fixLeafletIcon = () => {
@@ -42,6 +43,7 @@ interface MapProps {
   onSelectionComplete?: (bounds: any) => void
   overlays?: PathOverlay[]
   fitToOverlays?: boolean
+  previewBounds?: Bounds | null
 }
 
 // Helper component to auto-fit bounds to overlays
@@ -64,6 +66,21 @@ function FitBounds({ overlays }: { overlays: PathOverlay[] }) {
   return null
 }
 
+// Helper component to auto-fit the map to manual preview bounds
+function FitPreviewBounds({ bounds }: { bounds: Bounds }) {
+  const map = useMap()
+  
+  useEffect(() => {
+    const leafletBounds = L.latLngBounds(
+      L.latLng(bounds.south, bounds.west),
+      L.latLng(bounds.north, bounds.east)
+    )
+    map.fitBounds(leafletBounds, { padding: [50, 50], maxZoom: 16 })
+  }, [bounds, map])
+
+  return null
+}
+
 export default function Map({ 
   className, 
   center = [8.5241, 76.9366], // Trivandrum
@@ -72,7 +89,8 @@ export default function Map({
   showMockSelection,
   onSelectionComplete,
   overlays,
-  fitToOverlays = true
+  fitToOverlays = true,
+  previewBounds
 }: MapProps) {
   
   useEffect(() => {
@@ -137,6 +155,20 @@ export default function Map({
 
         {showMockSelection && !interactive && (
            <Rectangle bounds={[[8.52, 76.93], [8.53, 76.94]]} pathOptions={{ color: 'blue', fillOpacity: 0.1 }} />
+        )}
+
+        {/* Preview rectangle from manual coordinate entry */}
+        {previewBounds && (
+          <>
+            <Rectangle
+              bounds={[
+                [previewBounds.south, previewBounds.west],
+                [previewBounds.north, previewBounds.east]
+              ]}
+              pathOptions={{ color: '#3b82f6', weight: 2, fillOpacity: 0.1, dashArray: '6 4' }}
+            />
+            <FitPreviewBounds bounds={previewBounds} />
+          </>
         )}
 
         {/* Render path overlays (bypass road, congestion line, etc.) */}
