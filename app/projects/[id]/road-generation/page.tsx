@@ -16,7 +16,7 @@ const Map = dynamic(() => import('@/components/map/Map'), {
   loading: () => <div className="h-full w-full bg-slate-100 animate-pulse flex items-center justify-center text-muted-foreground">Loading Map...</div>
 })
 
-const BACKEND_URL = "http://localhost:5000"
+const BACKEND_URL = "http://localhost:5050"
 
 export default function RoadGenPage() {
   const params = useParams()
@@ -93,6 +93,10 @@ export default function RoadGenPage() {
     addLog("Sending request to backend...", 'info')
 
     try {
+        // Set a 3-minute timeout — road generation can take a while
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 3 * 60 * 1000)
+
         const response = await fetch(`${BACKEND_URL}/api/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -102,7 +106,10 @@ export default function RoadGenPage() {
                 bounds: selectedArea.bounds,
                 params: genParams
             }),
+            signal: controller.signal,
         })
+
+        clearTimeout(timeoutId)
 
         const data = await response.json()
 
@@ -172,7 +179,13 @@ export default function RoadGenPage() {
         }
 
     } catch (error: any) {
-        addLog(`Error: ${error.message}`, 'error')
+        if (error.name === 'AbortError') {
+            addLog('Error: Request timed out after 3 minutes. The server may be overloaded — try a smaller area or try again later.', 'error')
+        } else if (error.message === 'Failed to fetch') {
+            addLog('Error: Could not connect to the Road Generation backend. Make sure it is running on port 6000.', 'error')
+        } else {
+            addLog(`Error: ${error.message}`, 'error')
+        }
         console.error(error)
     } finally {
         setIsRunning(false)
