@@ -40,10 +40,37 @@ interface MapProps {
   zoom?: number
   interactive?: boolean
   showMockSelection?: boolean
+  selectionBounds?: [[number, number], [number, number]]
   onSelectionComplete?: (bounds: any) => void
   overlays?: PathOverlay[]
   fitToOverlays?: boolean
   previewBounds?: Bounds | null
+}
+
+// Helper component to update center and zoom
+function UpdateCenter({ center, zoom }: { center: [number, number], zoom: number }) {
+  const map = useMap()
+  
+  useEffect(() => {
+    if (center) {
+      map.setView(center, zoom || map.getZoom())
+    }
+  }, [center, zoom, map])
+
+  return null
+}
+
+// Helper component to auto-fit bounds to selection
+function FitSelectionBounds({ bounds }: { bounds: [[number, number], [number, number]] }) {
+  const map = useMap()
+  
+  useEffect(() => {
+    if (bounds) {
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 })
+    }
+  }, [bounds, map])
+
+  return null
 }
 
 // Helper component to auto-fit bounds to overlays
@@ -87,6 +114,7 @@ export default function Map({
   zoom = 13,
   interactive = true,
   showMockSelection,
+  selectionBounds,
   onSelectionComplete,
   overlays,
   fitToOverlays = true,
@@ -153,7 +181,7 @@ export default function Map({
             )}
         </FeatureGroup>
 
-        {showMockSelection && !interactive && (
+        {showMockSelection && !interactive && !selectionBounds && (
            <Rectangle bounds={[[8.52, 76.93], [8.53, 76.94]]} pathOptions={{ color: 'blue', fillOpacity: 0.1 }} />
         )}
 
@@ -169,6 +197,10 @@ export default function Map({
             />
             <FitPreviewBounds bounds={previewBounds} />
           </>
+        )}
+
+        {selectionBounds && !interactive && (
+           <Rectangle bounds={selectionBounds} pathOptions={{ color: 'blue', fillOpacity: 0.1 }} />
         )}
 
         {/* Render path overlays (bypass road, congestion line, etc.) */}
@@ -188,6 +220,16 @@ export default function Map({
         {/* Auto-fit to overlays */}
         {fitToOverlays && overlays && overlays.length > 0 && (
           <FitBounds overlays={overlays} />
+        )}
+
+        {/* Auto-fit to selection bounds */}
+        {selectionBounds && (
+          <FitSelectionBounds bounds={selectionBounds} />
+        )}
+
+        {/* Update center if provided without bounds */}
+        {!selectionBounds && center && (
+          <UpdateCenter center={center} zoom={zoom} />
         )}
       </MapContainer>
 
