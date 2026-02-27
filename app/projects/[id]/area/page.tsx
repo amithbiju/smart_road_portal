@@ -7,6 +7,8 @@ import dynamic from 'next/dynamic'
 import { MousePointer2, BoxSelect, Eraser } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { AreaStats, Bounds } from "@/types"
+
+type SelectionMode = 'draw' | 'coordinates'
 import { fetchInfrastructureStats } from "@/lib/osm-service"
 import { saveProjectArea } from "@/lib/firebase-services"
 import { useParams, useRouter } from "next/navigation"
@@ -32,6 +34,8 @@ export default function AreaSelectionPage() {
   const [stats, setStats] = useState<AreaStats | null>(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [selectionMode, setSelectionMode] = useState<SelectionMode>('draw')
+  const [previewBounds, setPreviewBounds] = useState<Bounds | null>(null)
   
   const [project, setProject] = useState<Project | null>(null)
 
@@ -56,7 +60,14 @@ export default function AreaSelectionPage() {
         west: leafletBounds.getWest()
     }
     setBounds(newBounds)
-    setStats(null) 
+    setStats(null)
+    setPreviewBounds(null)
+  }
+
+  const handleManualBounds = (manualBounds: Bounds) => {
+    setBounds(manualBounds)
+    setPreviewBounds(manualBounds)
+    setStats(null)
   }
 
   const handleAnalyze = async () => {
@@ -134,6 +145,7 @@ export default function AreaSelectionPage() {
             className="h-full w-full rounded-none border-0" 
             onSelectionComplete={handleSelectionComplete}
             interactive={true}
+            previewBounds={previewBounds}
           />
         </div>
 
@@ -145,6 +157,9 @@ export default function AreaSelectionPage() {
           onAnalyze={handleAnalyze}
           onSave={handleSave}
           saving={saving}
+          selectionMode={selectionMode}
+          onSelectionModeChange={setSelectionMode}
+          onManualBounds={handleManualBounds}
         />
       </div>
       
