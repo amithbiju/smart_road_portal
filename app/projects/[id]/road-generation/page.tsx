@@ -16,7 +16,7 @@ const Map = dynamic(() => import('@/components/map/Map'), {
   loading: () => <div className="h-full w-full bg-slate-100 animate-pulse flex items-center justify-center text-muted-foreground">Loading Map...</div>
 })
 
-const BACKEND_URL = "http://localhost:5000"
+const BACKEND_URL = "http://localhost:6000"
 
 export default function RoadGenPage() {
   const params = useParams()

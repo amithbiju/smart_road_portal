@@ -155,7 +155,11 @@ export function TrainingTab({ project, projectId }: TrainingTabProps) {
                       center={selectedArea.coordinates}
                       zoom={15}
                       interactive={false}
-                      showMockSelection={true}
+                      selectionBounds={
+                        selectedArea.bounds 
+                          ? [[selectedArea.bounds.south, selectedArea.bounds.west], [selectedArea.bounds.north, selectedArea.bounds.east]]
+                          : [[selectedArea.coordinates[0] - 0.005, selectedArea.coordinates[1] - 0.005], [selectedArea.coordinates[0] + 0.005, selectedArea.coordinates[1] + 0.005]]
+                      }
                    />
                ) : (
                    <div className="absolute inset-0 flex items-center justify-center text-muted-foreground bg-muted/20">
