@@ -17,10 +17,10 @@ export interface RoadGenParams {
 export const DEFAULT_PARAMS: RoadGenParams = {
   gridRes: 5.0,
   costObstacle: 9999,
-  costExistingRoad: 60,
-  costCongestionCore: 200,
-  costCongestionNear: 40,
-  costCongestionFar: 5,
+  costExistingRoad: 80,
+  costCongestionCore: 500,
+  costCongestionNear: 150,
+  costCongestionFar: 30,
   costEmpty: 1,
 }
 
