@@ -45,6 +45,7 @@ interface MapProps {
   overlays?: PathOverlay[]
   fitToOverlays?: boolean
   previewBounds?: Bounds | null
+  bounds?: Bounds | null
 }
 
 // Helper component to update center and zoom
@@ -118,7 +119,8 @@ export default function Map({
   onSelectionComplete,
   overlays,
   fitToOverlays = true,
-  previewBounds
+  previewBounds,
+  bounds
 }: MapProps) {
   
   useEffect(() => {
@@ -196,6 +198,20 @@ export default function Map({
               pathOptions={{ color: '#3b82f6', weight: 2, fillOpacity: 0.1, dashArray: '6 4' }}
             />
             <FitPreviewBounds bounds={previewBounds} />
+          </>
+        )}
+
+        {/* Selected Area Bound Box */}
+        {bounds && (
+          <>
+            <Rectangle
+              bounds={[
+                [bounds.south, bounds.west],
+                [bounds.north, bounds.east]
+              ]}
+              pathOptions={{ color: '#3b82f6', weight: 2, fillOpacity: 0.1, dashArray: '6 4' }}
+            />
+            {!fitToOverlays && <FitPreviewBounds bounds={bounds} />}
           </>
         )}
 

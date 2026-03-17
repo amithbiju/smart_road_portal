@@ -6,7 +6,7 @@ import { Play, Terminal, MapPin } from "lucide-react"
 import { cn } from "@/lib/utils"
 // Dynamic map import
 import dynamic from 'next/dynamic'
-import { startTraining, getLogStreamUrl } from "@/lib/traffic-api"
+import { startTraining, stopTraining, getLogStreamUrl } from "@/lib/traffic-api"
 
 const Map = dynamic(() => import('@/components/map/Map'), { 
   ssr: false,
@@ -56,14 +56,17 @@ export function TrainingTab({ project, projectId }: TrainingTabProps) {
         // Trigger training
         await startTraining({
             project_id: projectId,
-            bbox: {
-                north: selectedArea.coordinates[0] + 0.005, // Mock bounds if not explicit, but ideally we use area.bounds
+            bbox: selectedArea.bounds ? {
+                north: selectedArea.bounds.north,
+                south: selectedArea.bounds.south,
+                east: selectedArea.bounds.east,
+                west: selectedArea.bounds.west
+            } : (selectedArea.coordinates ? {
+                north: selectedArea.coordinates[0] + 0.005,
                 south: selectedArea.coordinates[0] - 0.005,
                 east: selectedArea.coordinates[1] + 0.005,
                 west: selectedArea.coordinates[1] - 0.005,
-                // If we updated Area type to include 'bounds', use that:
-                // ...selectedArea.bounds 
-            },
+            } : { north: 0, south: 0, east: 0, west: 0 }),
             min_green: minGreen,
             episodes: episodes
         })
@@ -72,6 +75,18 @@ export function TrainingTab({ project, projectId }: TrainingTabProps) {
         console.error("Failed to start training", error)
         setLogs(prev => [...prev, `Error: ${error}`])
         setIsTraining(false)
+    }
+  }
+
+  const handleStopTraining = async () => {
+    try {
+        setLogs(prev => [...prev, "Sending stop signal..."])
+        await stopTraining(projectId)
+        setIsTraining(false)
+        setLogs(prev => [...prev, "Training stopped successfully."])
+    } catch (error) {
+        console.error("Failed to stop training", error)
+        setLogs(prev => [...prev, `Error stopping training: ${error}`])
     }
   }
 
@@ -135,30 +150,45 @@ export function TrainingTab({ project, projectId }: TrainingTabProps) {
                       />
                   </div>
 
-                  <button
-                    onClick={handleStartTraining}
-                    disabled={!selectedArea || isTraining}
-                    className="w-full mt-4 bg-primary text-primary-foreground py-2 rounded-md font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                     <Play size={16} />
-                     {isTraining ? "Training Started..." : "Start Training"}
-                  </button>
+                  <div className="flex gap-2 mt-4">
+                      <button
+                        onClick={handleStartTraining}
+                        disabled={!selectedArea || isTraining}
+                        className="flex-1 bg-primary text-primary-foreground py-2 rounded-md font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                         <Play size={16} />
+                         {isTraining ? "Training Started..." : "Start Training"}
+                      </button>
+                      
+                      {isTraining && (
+                          <button
+                            onClick={handleStopTraining}
+                            className="bg-destructive text-destructive-foreground px-4 py-2 rounded-md font-medium hover:bg-destructive/90 flex items-center justify-center gap-2 transition-colors"
+                          >
+                             Stop
+                          </button>
+                      )}
+                  </div>
               </div>
           </div>
        </div>
 
        {/* Middle/Right: Map & Logs */}
-       <div className="lg:col-span-2 flex flex-col gap-6">
-           <div className="h-1/2 bg-slate-100 rounded-lg border border-border overflow-hidden relative">
+       <div className="lg:col-span-2 flex flex-col gap-6 min-h-0">
+           <div className="flex-1 bg-slate-100 rounded-lg border border-border overflow-hidden relative min-h-0">
                {selectedArea ? (
                    <Map 
-                      center={selectedArea.coordinates}
+                      center={selectedArea.coordinates || (selectedArea.bounds ? 
+                        [(selectedArea.bounds.north + selectedArea.bounds.south) / 2, (selectedArea.bounds.east + selectedArea.bounds.west) / 2] 
+                        : [8.5241, 76.9366])}
                       zoom={15}
                       interactive={false}
                       selectionBounds={
                         selectedArea.bounds 
                           ? [[selectedArea.bounds.south, selectedArea.bounds.west], [selectedArea.bounds.north, selectedArea.bounds.east]]
-                          : [[selectedArea.coordinates[0] - 0.005, selectedArea.coordinates[1] - 0.005], [selectedArea.coordinates[0] + 0.005, selectedArea.coordinates[1] + 0.005]]
+                          : (selectedArea.coordinates 
+                                ? [[selectedArea.coordinates[0] - 0.005, selectedArea.coordinates[1] - 0.005], [selectedArea.coordinates[0] + 0.005, selectedArea.coordinates[1] + 0.005]]
+                                : undefined)
                       }
                    />
                ) : (
@@ -168,8 +198,8 @@ export function TrainingTab({ project, projectId }: TrainingTabProps) {
                )}
            </div>
 
-           <div className="h-1/2 bg-slate-950 rounded-lg border border-border flex flex-col overflow-hidden">
-               <div className="bg-slate-900 px-4 py-2 border-b border-slate-800 flex items-center gap-2">
+           <div className="flex-1 bg-slate-950 rounded-lg border border-border flex flex-col overflow-hidden min-h-0">
+               <div className="bg-slate-900 px-4 py-2 border-b border-slate-800 flex items-center gap-2 shrink-0">
                    <Terminal size={14} className="text-slate-400" />
                    <span className="text-xs font-mono text-slate-400">Live Training Logs</span>
                </div>

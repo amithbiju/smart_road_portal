@@ -66,13 +66,13 @@ export function Sidebar() {
        icon: Construction,
        disabled: !isProjectContext
     },
-    { 
-       label: "Results & Exports", 
-       href: isProjectContext ? `/projects/${projectId}/results` : "/projects", 
-       icon: FileText,
-       disabled: !isProjectContext
-    },
-    { label: "Settings", href: "#", icon: Settings },
+    // { 
+    //    label: "Results & Exports", 
+    //    href: isProjectContext ? `/projects/${projectId}/results` : "/projects", 
+    //    icon: FileText,
+    //    disabled: !isProjectContext
+    // },
+    // { label: "Settings", href: "#", icon: Settings },
   ]
 
   return (

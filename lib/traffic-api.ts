@@ -73,6 +73,18 @@ export async function getResults(projectId: string): Promise<ResultsResponse> {
   }
 }
 
+export async function stopTraining(projectId: string): Promise<{ message: string }> {
+  const response = await fetch(`${BASE_URL}/stop/${projectId}`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to stop training: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
 export async function getStatus(projectId: string): Promise<ProjectStatus> {
     const response = await fetch(`${BASE_URL}/status/${projectId}`);
     if (!response.ok) {
