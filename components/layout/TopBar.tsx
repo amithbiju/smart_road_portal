@@ -31,14 +31,14 @@ export function TopBar() {
             />
         </div>
 
-        <button className="relative p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+        {/* <button className="relative p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
           <Bell size={18} />
           <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-primary" />
         </button>
 
         <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground border border-input">
           <User size={16} />
-        </div>
+        </div> */}
       </div>
     </header>
   )

@@ -1,8 +1,11 @@
 import Link from "next/link"
-import { MOCK_PROJECTS } from "@/lib/mock-data"
+import { getProjects } from "@/lib/firebase-services"
 import { ArrowRight, MapPin, Calendar, MoreHorizontal } from "lucide-react"
 
-export function ActiveProjects() {
+export async function ActiveProjects() {
+  const allProjects = await getProjects();
+  const projects = allProjects.slice(0, 5); // Show latest 5
+
   return (
     <div className="bg-card rounded-lg border border-border shadow-sm flex flex-col h-full">
       <div className="p-4 border-b border-border flex items-center justify-between">
@@ -13,7 +16,7 @@ export function ActiveProjects() {
       </div>
       
       <div className="p-4 space-y-3 flex-1 overflow-y-auto max-h-[400px]">
-        {MOCK_PROJECTS.map((project) => (
+        {projects.map((project) => (
           <div 
             key={project.id} 
             className="group flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-md border border-border hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer"
@@ -34,7 +37,7 @@ export function ActiveProjects() {
                 </div>
                 <div className="flex items-center gap-1">
                   <MapPin size={12} />
-                  <span>{project.areas.length} Areas</span>
+                  <span>{project.areas?.length || 0} Areas</span>
                 </div>
               </div>
             </div>
@@ -53,7 +56,7 @@ export function ActiveProjects() {
           </div>
         ))}
         
-        {MOCK_PROJECTS.length === 0 && (
+        {projects.length === 0 && (
            <div className="text-center py-8 text-muted-foreground">
              No active projects found.
            </div>

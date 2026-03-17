@@ -1,32 +1,36 @@
 import { cn } from "@/lib/utils"
 import { CheckCircle2, Cloud, Server } from "lucide-react"
 
-export function StatusWidgets() {
+import { getProjects } from "@/lib/firebase-services"
+
+export async function StatusWidgets() {
+  const projects = await getProjects()
+  const projectCount = projects.length
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       <StatusCard 
-        label="Traffic API" 
-        status="Connected" 
-        icon={Cloud} 
-        active={true}
-      />
-      <StatusCard 
-        label="Optimization Engine" 
-        status="Idle" 
+        label="Signal Optimization" 
+        status="Live" 
         icon={Server} 
-        active={false}
-      />
-      <StatusCard 
-        label="System Health" 
-        status="Healthy" 
-        icon={CheckCircle2} 
         active={true}
       />
-       {/* Placeholder for project count or other metric */}
+      <StatusCard 
+        label="Lane Planning" 
+        status="Live" 
+        icon={Server} 
+        active={true}
+      />
+      <StatusCard 
+        label="Road Generation" 
+        status="Live" 
+        icon={Server} 
+        active={true}
+      />
        <div className="bg-card rounded-lg p-4 border border-border shadow-sm flex items-center justify-between">
           <div>
             <div className="text-sm text-muted-foreground">Total Projects</div>
-            <div className="text-2xl font-bold mt-1">2</div>
+            <div className="text-2xl font-bold mt-1">{projectCount}</div>
           </div>
           <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center text-primary">
             <span className="font-bold">#</span>
