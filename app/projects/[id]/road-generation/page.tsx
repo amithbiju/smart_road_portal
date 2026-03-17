@@ -16,7 +16,7 @@ const Map = dynamic(() => import('@/components/map/Map'), {
   loading: () => <div className="h-full w-full bg-slate-100 animate-pulse flex items-center justify-center text-muted-foreground">Loading Map...</div>
 })
 
-const BACKEND_URL = "http://localhost:6000"
+const BACKEND_URL = "http://localhost:6001"
 
 export default function RoadGenPage() {
   const params = useParams()
@@ -93,11 +93,8 @@ export default function RoadGenPage() {
     addLog("Sending request to backend...", 'info')
 
     try {
-        // Set a 3-minute timeout — road generation can take a while
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 3 * 60 * 1000)
-
-        const response = await fetch(`${BACKEND_URL}/api/generate`, {
+        // Step 1: Start generation and get jobId
+        const startResponse = await fetch(`${BACKEND_URL}/api/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -106,83 +103,127 @@ export default function RoadGenPage() {
                 bounds: selectedArea.bounds,
                 params: genParams
             }),
-            signal: controller.signal,
         })
 
-        clearTimeout(timeoutId)
+        const startData = await startResponse.json()
 
-        const data = await response.json()
-
-        if (!response.ok) {
-            throw new Error(data.error || "Generation failed on backend")
+        if (!startResponse.ok) {
+            throw new Error(startData.error || "Failed to start generation")
         }
 
-        addLog("✓ OSM data downloaded", 'success')
-        addLog("✓ Network extracted (netconvert)", 'success')
-        addLog("✓ Traffic simulation complete", 'success')
-        addLog("✓ Bypass road generated", 'success')
-        
-        // Process file list
-        if (data.files && data.files.length > 0) {
-            addLog(`Generated ${data.files.length} files:`, 'info')
-            data.files.forEach((f: any) => {
-                const sizeKB = (f.size / 1024).toFixed(1)
-                addLog(`  → ${f.name} (${sizeKB} KB)`, 'info')
-            })
-        }
+        const jobId = startData.jobId
+        addLog(`Job started: ${jobId}`, 'info')
 
-        addLog(data.message || "Process completed successfully.", 'success')
-        setResult(data)
-        
-        // Set map overlays from response
-        if (data.overlays) {
-            const newOverlays: PathOverlay[] = []
-            
-            if (data.overlays.congestion_red) {
-                newOverlays.push({
-                    id: 'congestion',
-                    coordinates: data.overlays.congestion_red.coordinates,
-                    color: '#ef4444', // Red
-                    weight: 6,
-                    opacity: 0.9,
-                    label: 'Congested Road'
-                })
-            }
-            
-            if (data.overlays.bypass_green) {
-                newOverlays.push({
-                    id: 'bypass',
-                    coordinates: data.overlays.bypass_green.coordinates,
-                    color: '#22c55e', // Green
-                    weight: 5,
-                    opacity: 0.9,
-                    label: 'Proposed Bypass'
-                })
-            }
-            
-            // Handle any other overlays generically
-            Object.entries(data.overlays).forEach(([key, val]: [string, any]) => {
-                if (key !== 'congestion_red' && key !== 'bypass_green') {
-                    newOverlays.push({
-                        id: key,
-                        coordinates: val.coordinates,
-                        color: val.color || '#3b82f6',
-                        weight: 4,
-                        opacity: 0.8,
-                        label: key.replace(/_/g, ' ')
-                    })
+        // Step 2: Connect to SSE stream for real-time progress
+        await new Promise<void>((resolve, reject) => {
+            const eventSource = new EventSource(`${BACKEND_URL}/api/generate/${jobId}/stream`)
+
+            eventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data)
+
+                    if (data.type === 'log') {
+                        // Map backend levels to our LogEntry levels
+                        const levelMap: Record<string, LogEntry['level']> = {
+                            'info': 'info',
+                            'success': 'success',
+                            'warning': 'warning',
+                            'error': 'error',
+                        }
+                        const level = levelMap[data.level] || 'info'
+                        addLog(data.message, level)
+                    } else if (data.type === 'complete') {
+                        eventSource.close()
+                        
+                        const result = data.result
+                        addLog(result.message || "Process completed successfully.", 'success')
+                        setResult(result)
+                        
+                        // Process file list
+                        if (result.files && result.files.length > 0) {
+                            result.files.forEach((f: any) => {
+                                const sizeKB = (f.size / 1024).toFixed(1)
+                                addLog(`  → ${f.name} (${sizeKB} KB)`, 'info')
+                            })
+                        }
+
+                        // Set map overlays from response
+                        if (result.overlays) {
+                            const newOverlays: PathOverlay[] = []
+                            
+                            if (result.overlays.congestion_red) {
+                                newOverlays.push({
+                                    id: 'congestion',
+                                    coordinates: result.overlays.congestion_red.coordinates,
+                                    color: '#ef4444',
+                                    weight: 6,
+                                    opacity: 0.9,
+                                    label: 'Congested Road'
+                                })
+                            }
+                            
+                            if (result.overlays.bypass_green) {
+                                newOverlays.push({
+                                    id: 'bypass',
+                                    coordinates: result.overlays.bypass_green.coordinates,
+                                    color: '#22c55e',
+                                    weight: 6,
+                                    opacity: 0.95,
+                                    dashArray: '12 6',
+                                    label: 'Proposed Bypass'
+                                })
+                            }
+                            
+                            Object.entries(result.overlays).forEach(([key, val]: [string, any]) => {
+                                if (key !== 'congestion_red' && key !== 'bypass_green') {
+                                    newOverlays.push({
+                                        id: key,
+                                        coordinates: val.coordinates,
+                                        color: val.color || '#3b82f6',
+                                        weight: 4,
+                                        opacity: 0.8,
+                                        label: key.replace(/_/g, ' ')
+                                    })
+                                }
+                            })
+                            
+                            setOverlays(newOverlays)
+                            addLog(`Displaying ${newOverlays.length} overlay(s) on map.`, 'success')
+                        }
+
+                        resolve()
+                    } else if (data.type === 'error') {
+                        eventSource.close()
+                        reject(new Error(data.error || "Generation failed on backend"))
+                    }
+                } catch (parseErr) {
+                    console.error("Failed to parse SSE event:", parseErr)
                 }
-            })
-            
-            setOverlays(newOverlays)
-            addLog(`Displaying ${newOverlays.length} overlay(s) on map.`, 'success')
-        }
+            }
+
+            eventSource.onerror = () => {
+                eventSource.close()
+                // Try polling status as fallback
+                fetch(`${BACKEND_URL}/api/generate/${jobId}/status`)
+                    .then(r => r.json())
+                    .then(statusData => {
+                        if (statusData.status === 'complete') {
+                            setResult(statusData.result)
+                            addLog("Process completed (reconnected).", 'success')
+                            resolve()
+                        } else if (statusData.status === 'failed') {
+                            reject(new Error(statusData.error || "Generation failed"))
+                        } else {
+                            reject(new Error("SSE connection lost while job is still running. Check backend logs."))
+                        }
+                    })
+                    .catch(() => reject(new Error("Lost connection to backend.")))
+            }
+        })
 
     } catch (error: any) {
-        if (error.name === 'AbortError') {
-            addLog('Error: Request timed out after 3 minutes. The server may be overloaded — try a smaller area or try again later.', 'error')
-        } else if (error.message === 'Failed to fetch') {
-            addLog('Error: Could not connect to the Road Generation backend. Make sure it is running on port 6000.', 'error')
+        if (error.message === 'Failed to fetch') {
+            addLog('Error: Could not connect to the Road Generation backend. Make sure it is running on port 6001.', 'error')
         } else {
             addLog(`Error: ${error.message}`, 'error')
         }
