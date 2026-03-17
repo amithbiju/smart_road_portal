@@ -89,3 +89,12 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: var(--muted-foreground);
 }
+
+/* Hide scrollbar for elements that should scroll cleanly */
+.disable-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.disable-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}

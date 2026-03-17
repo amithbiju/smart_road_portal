@@ -8,8 +8,10 @@ import { RoadGenInputs, RoadGenParams } from "@/components/optimization/RoadGenI
 import dynamic from "next/dynamic"
 import { LogEntry, Project, Area } from "@/types"
 import { getProject } from "@/lib/firebase-services"
-import { AlertCircle, CheckCircle2, MapPin, FileText } from "lucide-react"
+import { AlertCircle, CheckCircle2, MapPin, FileText, Settings2, BarChart3 } from "lucide-react"
 import type { PathOverlay } from "@/components/map/Map"
+import { RoadGenResultsTab } from "@/components/optimization/RoadGenResultsTab"
+import { cn } from "@/lib/utils"
 
 const Map = dynamic(() => import('@/components/map/Map'), { 
   ssr: false,
@@ -29,6 +31,7 @@ export default function RoadGenPage() {
   const [result, setResult] = useState<any>(null)
   const [overlays, setOverlays] = useState<PathOverlay[]>([])
   const [mapCenter, setMapCenter] = useState<[number, number]>([8.5241, 76.9366])
+  const [activeTab, setActiveTab] = useState<'planning' | 'results'>('planning')
 
   useEffect(() => {
     async function loadProject() {
@@ -151,40 +154,16 @@ export default function RoadGenPage() {
                         if (result.overlays) {
                             const newOverlays: PathOverlay[] = []
                             
-                            if (result.overlays.congestion_red) {
-                                newOverlays.push({
-                                    id: 'congestion',
-                                    coordinates: result.overlays.congestion_red.coordinates,
-                                    color: '#ef4444',
-                                    weight: 6,
-                                    opacity: 0.9,
-                                    label: 'Congested Road'
-                                })
-                            }
-                            
-                            if (result.overlays.bypass_green) {
-                                newOverlays.push({
-                                    id: 'bypass',
-                                    coordinates: result.overlays.bypass_green.coordinates,
-                                    color: '#22c55e',
-                                    weight: 6,
-                                    opacity: 0.95,
-                                    dashArray: '12 6',
-                                    label: 'Proposed Bypass'
-                                })
-                            }
-                            
                             Object.entries(result.overlays).forEach(([key, val]: [string, any]) => {
-                                if (key !== 'congestion_red' && key !== 'bypass_green') {
-                                    newOverlays.push({
-                                        id: key,
-                                        coordinates: val.coordinates,
-                                        color: val.color || '#3b82f6',
-                                        weight: 4,
-                                        opacity: 0.8,
-                                        label: key.replace(/_/g, ' ')
-                                    })
-                                }
+                                newOverlays.push({
+                                    id: key,
+                                    coordinates: val.coordinates,
+                                    color: val.color || (key.includes('red') || key.includes('congestion') ? '#ef4444' : key.includes('green') || key.includes('bypass') ? '#22c55e' : '#3b82f6'),
+                                    weight: val.weight || 6,
+                                    opacity: val.opacity || 0.9,
+                                    dashArray: val.dashArray,
+                                    label: val.label || key.replace(/_/g, ' ')
+                                })
                             })
                             
                             setOverlays(newOverlays)
@@ -234,83 +213,118 @@ export default function RoadGenPage() {
   }
 
   return (
-    <div className="flex flex-col h-full gap-4">
-        {/* Area Selection Header */}
-        <div className="bg-card border border-border rounded-lg p-4 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                   <MapPin size={16} />
-                   Active Area
+    <div className="flex flex-col h-[calc(100vh-6rem)]">
+        {/* Header Tabs */}
+        <div className="flex flex-col gap-4 border-b border-border px-6 pt-4 mb-6 relative z-10">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-center gap-1 overflow-x-auto w-full md:w-auto disable-scrollbar">
+                    <TabButton 
+                       label="Generation Setup" 
+                       icon={Settings2} 
+                       isActive={activeTab === 'planning'} 
+                       onClick={() => setActiveTab('planning')}
+                    />
+                    <TabButton 
+                       label="Results & Analysis" 
+                       icon={BarChart3} 
+                       isActive={activeTab === 'results'} 
+                       onClick={() => setActiveTab('results')}
+                    />
                 </div>
                 
-                {project?.areas && project.areas.length > 0 ? (
-                    <select 
-                        className="h-9 w-[220px] rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                        value={selectedArea?.id || ""}
-                        onChange={(e) => {
-                            const area = project.areas.find(a => a.id === e.target.value)
-                            setSelectedArea(area || null)
-                        }}
-                        disabled={isRunning}
-                    >
-                        {project.areas.map(area => (
-                            <option key={area.id} value={area.id}>{area.name}</option>
-                        ))}
-                    </select>
-                ) : (
-                    <span className="text-sm text-destructive flex items-center gap-2">
-                        <AlertCircle size={16} />
-                        No areas found. Go to Areas tab to create one.
-                    </span>
-                )}
-                
-                {selectedArea?.bounds && (
-                    <span className="text-xs text-muted-foreground font-mono bg-muted px-2 py-1 rounded hidden md:inline">
-                       N:{selectedArea.bounds.north.toFixed(3)} S:{selectedArea.bounds.south.toFixed(3)}
-                    </span>
-                )}
-            </div>
-            
-            <div className="flex items-center gap-3">
-                {result?.files && (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <FileText size={14} />
-                        {result.files.length} files generated
+                {/* Area Selection Header */}
+                <div className="flex items-center gap-4 py-2 border-l border-border pl-4">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mr-2 whitespace-nowrap">
+                       <MapPin size={16} /> Area Context
                     </div>
-                )}
-                {result && (
-                    <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-3 py-1.5 rounded-full border border-green-200 dark:border-green-900/50">
-                        <CheckCircle2 size={16} />
-                        <span>Complete</span>
-                    </div>
-                )}
+                    {project?.areas && project.areas.length > 0 ? (
+                        <div className="flex items-center gap-3">
+                            <select 
+                                className="h-9 w-[180px] rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                value={selectedArea?.id || ""}
+                                onChange={(e) => {
+                                    const area = project.areas.find(a => a.id === e.target.value)
+                                    setSelectedArea(area || null)
+                                }}
+                                disabled={isRunning}
+                            >
+                                {project.areas.map(area => (
+                                    <option key={area.id} value={area.id}>{area.name}</option>
+                                ))}
+                            </select>
+                            
+                            {activeTab === 'planning' && result?.files && (
+                                <div className="hidden lg:flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                                    <FileText size={14} />
+                                    {result.files.length} files
+                                </div>
+                            )}
+                            {activeTab === 'planning' && result && (
+                                <div className="hidden lg:flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded border border-green-200 dark:border-green-900/50">
+                                    <CheckCircle2 size={14} />
+                                    <span>Complete</span>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <span className="text-sm text-destructive flex items-center gap-2">
+                            <AlertCircle size={16} />
+                            No areas found.
+                        </span>
+                    )}
+                </div>
             </div>
         </div>
 
-        <SectionLayout 
-          title="Road Network Generation"
-          status={isRunning ? "Generating..." : result ? "Complete" : "Idle"}
-          inputs={<RoadGenInputs onRun={handleRun} isRunning={isRunning} />}
-          visualizer={
-            <div className="h-full relative flex flex-col">
-                <div className="flex-1 relative">
-                    <Map 
-                      className="h-full rounded-none border-0" 
-                      center={mapCenter}
-                      zoom={14}
-                      overlays={overlays}
-                      fitToOverlays={overlays.length > 0}
+        <div className="flex-1 overflow-y-auto px-6 pb-10">
+            {activeTab === 'planning' ? (
+                <div className="flex flex-col h-full gap-4 pb-12">
+                    <SectionLayout 
+                      title="Road Network Generation"
+                      status={isRunning ? "Generating..." : result ? "Complete" : "Idle"}
+                      inputs={<RoadGenInputs onRun={handleRun} isRunning={isRunning} />}
+                      visualizer={
+                        <div className="h-full relative flex flex-col">
+                            <div className="flex-1 relative">
+                                <Map 
+                                  className="h-full rounded-none border-0" 
+                                  center={mapCenter}
+                                  zoom={14}
+                                  overlays={overlays}
+                                  fitToOverlays={overlays.length > 0}
+                                />
+                            </div>
+                            {result && (
+                                 <div className="p-2.5 bg-muted/50 text-xs text-center border-t border-border font-mono text-muted-foreground">
+                                     Output: projects/{projectId}/{selectedArea?.id}/
+                                 </div>
+                            )}
+                        </div>
+                      }
+                      logs={<LogStream logs={logs} isRunning={isRunning} />}
                     />
                 </div>
-                {result && (
-                     <div className="p-2.5 bg-muted/50 text-xs text-center border-t border-border font-mono text-muted-foreground">
-                         Output: projects/{projectId}/{selectedArea?.id}/
-                     </div>
-                )}
-            </div>
-          }
-          logs={<LogStream logs={logs} isRunning={isRunning} />}
-        />
+            ) : (
+                <RoadGenResultsTab projectId={projectId} selectedAreaId={selectedArea?.id} bounds={selectedArea?.bounds} />
+            )}
+        </div>
     </div>
   )
+}
+
+function TabButton({ label, icon: Icon, isActive, onClick }: any) {
+    return (
+        <button
+           onClick={onClick}
+           className={cn(
+               "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors -mb-[2px] whitespace-nowrap",
+               isActive 
+                 ? "border-primary text-primary" 
+                 : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+           )}
+        >
+            <Icon size={16} />
+            {label}
+        </button>
+    )
 }

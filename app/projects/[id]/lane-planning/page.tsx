@@ -129,27 +129,17 @@ export default function LanePlanningPage() {
         if (data.overlays) {
             const newOverlays: PathOverlay[] = []
             
-            if (data.overlays.congestion_red) {
+            Object.entries(data.overlays).forEach(([key, val]: [string, any]) => {
                 newOverlays.push({
-                    id: 'congestion',
-                    coordinates: data.overlays.congestion_red.coordinates,
-                    color: '#ef4444',
-                    weight: 6,
-                    opacity: 0.9,
-                    label: data.overlays.congestion_red.label
+                    id: key,
+                    coordinates: val.coordinates,
+                    color: val.color || (key.includes('red') || key.includes('congestion') ? '#ef4444' : key.includes('green') || key.includes('bypass') ? '#22c55e' : '#3b82f6'),
+                    weight: val.weight || 6,
+                    opacity: val.opacity || 0.9,
+                    dashArray: val.dashArray,
+                    label: val.label || key.replace(/_/g, ' ')
                 })
-            }
-            
-            if (data.overlays.bypass_green) {
-                newOverlays.push({
-                    id: 'bypass',
-                    coordinates: data.overlays.bypass_green.coordinates,
-                    color: '#22c55e',
-                    weight: 5,
-                    opacity: 0.9,
-                    label: data.overlays.bypass_green.label
-                })
-            }
+            })
             
             setOverlays(newOverlays)
             addLog(`Displaying ${newOverlays.length} structural changes on map.`, 'success')
@@ -258,7 +248,7 @@ function TabButton({ label, icon: Icon, isActive, onClick }: any) {
         <button
            onClick={onClick}
            className={cn(
-               "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors -mb-[2px]",
+               "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors -mb-[2px] whitespace-nowrap",
                isActive 
                  ? "border-primary text-primary" 
                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
